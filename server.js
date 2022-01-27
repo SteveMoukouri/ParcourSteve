@@ -13,6 +13,7 @@ const parse = require('csv-parse');
 const write = require('write');
 
 const addEcole = require ("./crontab/add_ecole");
+const addFormation = require('./crontab/add_metier_formation');
 
 mongoose.connect('mongodb+srv://nodetest:nodepassword@cluster0.ysysx.mongodb.net/parcoursDB?retryWrites=true&w=majority', {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true });
 
@@ -23,7 +24,8 @@ connection.on('error', error => {
 connection.once('open', () => {
 	console.log('Connected to MongoDB');
 	
-  addEcole();
+//  addEcole();
+  addFormation();
 });
 
 app.use(express.urlencoded({ extended: true }));
