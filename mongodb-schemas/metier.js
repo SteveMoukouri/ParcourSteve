@@ -7,6 +7,7 @@ const metierSchema = new mongoose.Schema({
     niveau_access_minimum: { type: String, required: true }
 });
 
+metierSchema.index({nom: 'text'});
 const Metier = mongoose.model("metier", metierSchema);
 
 module.exports = Metier;

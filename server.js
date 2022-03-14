@@ -14,6 +14,7 @@ const write = require('write');
 
 const addEcole = require ("./crontab/add_ecole");
 const addFormation = require('./crontab/add_metier_formation');
+const parcours = require('./tools/parcours');
 
 mongoose.connect('mongodb+srv://nodetest:nodepassword@cluster0.ysysx.mongodb.net/parcoursDB?retryWrites=true&w=majority', {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true });
 
@@ -25,7 +26,9 @@ connection.once('open', () => {
 	console.log('Connected to MongoDB');
 	
 //  addEcole();
-  addFormation();
+//  addFormation();
+  parcours.createParcours("meteorologiste", 5);
+//parcours.createParcours("conseiller/ere en fusion-acquisition", 5);
 });
 
 app.use(express.urlencoded({ extended: true }));
