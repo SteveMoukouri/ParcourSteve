@@ -1,161 +1,228 @@
 const Metier = require('../mongodb-schemas/metier');
 const Formation = require ('../mongodb-schemas/formation');
 const Ecole = require('../mongodb-schemas/ecole');
+const mongoose = require('mongoose');
 
 const globalFunc = require('../global');
+const fs = require('fs');
+const MetierFormation = require('../mongodb-schemas/metier-formation');
+const Parcours = require("../mongodb-schemas/parcours");
+const { updateOne } = require('../mongodb-schemas/metier');
 
 module.exports = class ParcoursFunc {
     constructor() {}
-    
-    static triFormation(niveau) {
-        switch (niveau) {
-            case "BAC + 1":
-                return 0;
-            case "NIV4":
-                return 2;
-            case "NIV5":
-                return 3;
-            case "NIV6":
-                return 4;
-            case "NIV7":
-                return 5;
-            case "NIV8":
-                return 8;
-            default:
-                return 0;
-                break;
-        }
+
+    static triFormation(niveau_sortie,duree_cycle) {
+
+        const sortie = Number(niveau_sortie.replace(/\D/g, ''));
+        const cycle = Number(duree_cycle.replace(/\D/g, ''));
+        if(sortie - cycle < 0) return 0;
+        return sortie - cycle ;
     }
-    
-    static createParcours(metier , niveau){
-        metier = globalFunc.replaceSpecialChars(metier);
+
+    static createParcours(idMetier,niveau,ville=null){
 
         return (new Promise (async (resolve,reject) => {
-           const jobs = await Metier.find({ nom: { $regex: metier , $options: 'i'} })
-            .select({"nom": 1, "niveau_access_minimum": 1})
-            .limit(10)
-            .catch(error => {
+            const metier_choisi = await MetierFormation.find({ id_metier: mongoose.Types.ObjectId(idMetier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
                 reject(error);
-            })
+            });
+            console.log("J AFFICHE LE METIER / \n",metier_choisi);
 
-            // console.log(jobs);
+            let formations = [];
+            let formationsForVille = [];
 
-            await globalFunc.asyncForEach(jobs, (async job => { 
-                // const formations = await Formation.find({ id_metier: job._id}).catch(error => {
-                //     reject(error);
-                // })
-                
-                // let bac = [];
-                // for (let i = niveau ; i <= 8 ; i++){
-                //     bac[i]
-                // }
-
-                let docs = await Formation.aggregate([
-                {
-                    $match: { id_metier: job._id}
-                }, {
-                    $group: {
-                        // Each `_id` must be unique, so if there are multiple
-                        // documents with the same age, MongoDB will increment `count`.
-                        _id: '$niveau_sortie',
-                        forms: {$push : { nom : "$nom" , code_formation : "$code_formation", domaine:"$domaine"}} //noms: { $push : "$nom"  }
-                    }
-                }
-                ]);
-            //    console.log(formations)
-                console.log(docs);
-                console.log("----------------------------------- \n");
-                let triFormation = [];
-                let list_domaine = [];
-                //On cherche les domaines en commun pour trouver les formations similaires
-                if (docs) {
-                    docs.forEach(formation => {
-                        formation.forms.forEach(f => {
-                            // console.log(f);
-                            // console.log(f.domaine);
-                            list_domaine.push(f.domaine);
-                        })
-                        console.log(list_domaine);
-
-                        triFormation.push(formation.forms);
-                    })
-                }
-                console.log("---------------- J AFFICHE LES DOMAINES------------------- \n")
-
-                //console.log(triFormation);
-                //console.log(list_domaine);
-                let domaine_fin = list_domaine[0];
-                console.log(domaine_fin);
-                let domaine_fin2 = [];
-
-
-                // On garde l'intersection entre les différents domaines
-                list_domaine.forEach(secteur => {
-                    domaine_fin2 =  secteur.filter(domaine_recherche => {
-                        const domaine = domaine_fin.some(res_intermediaire => new RegExp(res_intermediaire).test(domaine_recherche));
-                        return domaine;
-                    });
-                })
-                console.log('domaine_fin2', domaine_fin2);
-                console.log('domaine_fin final', domaine_fin);
-
-                // const listFormations = await Formation.find({ domaine: { "$in" : domaine_fin }  }).select({'id_ecole':1, 'nom':1, "niveau_sortie": 1,"domaine":1}).catch(error => {
-                //     console.log(error);
-                // });
-                // console.log(listFormations)
-
-                console.log("----------------- FIN ----------------")
-
-                //On recherche les formations qui ont les domaines indiqués et on les agrège par niveau
-
-                const regex_domaine_fin2 = domaine_fin2.map(function (domaine) { return new RegExp(domaine.trim(), "i"); });
-
-                let docs_form = await Formation.aggregate([
-                    {
-                        $match: { domaine: { $in : regex_domaine_fin2 }}
-                    }, {
-                        $group: {
-                            _id: '$niveau_sortie',
-                            forms: {$push : { id: "$_id", code_formation : "$code_formation"}}
-                            // forms: {$push : { nom : "$nom" , code_formation : "$code_formation", domaine:"$domaine"}} //noms: { $push : "$nom"  }
+            metier_choisi.forEach(job => {
+                job.formations.forEach(formation => {
+                    if (formation.niveau_entree >= niveau) {
+                        formationsForVille.push(formation.codes_formations);
+                        if (ville) {
+                            formations = formationsForVille.filter(f => f.ville === ville);
+                        } else {
+                            formations = formationsForVille;
                         }
                     }
-                ]);
+                });
+                //console.log("----------------------- \n J'AFFICHE LES FORMATIONS \n",formations);
+            });
 
-                console.log(docs_form);
-                let res = [];
-                const cartesian = (...a) => a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())));
-                let output = [];
+            const cartesian = (...a) => a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())));
+            let output = [];
+            output = cartesian.apply(this,formations);
+            console.log("-------------------------\n J AFFICHE LES ARCOURS : \n",output);
 
-                if(docs_form){
-                    docs_form.forEach(doc => {
-                        // console.log(doc.forms.map(form => form.code_formation));
-                        res.push(doc.forms.map(form => { return { 'bac': doc._id, 'code': form.id} }));
-                        console.log("------------ RES ------------------\n");
-                        console.log(res);
-                        console.log("------------ END RES ------------------\n");
-                        output = cartesian.apply(this,res)
-                        console.log("------------ OUTPUT ------------------\n");
-                        console.log(output);
+            // const formationsFull = [];
+            // await globalFunc.asyncForEach(formations, (async idFormation => {
+            //     const formation = await Formation.findById(idFormation.id).catch(error => {
+            //         console.log(error);
+            //     });
+            //     if (formation) {
+            //         formationsFull.push(formation);
+            //     }
+            // }));
 
-                        // for(let i = 0; i< doc.lentgth; i++){
-
-
-                        // }
-                    })
-                }
-                console.log("--------------- LA VRAIE FIN -------------------- \n")
+            // resolve(formationsFull);
 
 
-               /* console.log('Resultat attendu',
-                [
-                    ["Formation de premier niveau", "Formation de second niveau"],
-                    ["Formation de premier niveau", "Formation de second niveau mais une autre"]
-                ]); */
-            }))
-        
+            // console.log(docs_form);
+            // let res = [];
+            // const cartesian = (...a) => a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())));
+            // let output = [];
+
+            // if(docs_form){
+            //     docs_form.forEach(doc => {
+            //         console.log(doc.forms);
+            //         // console.log(doc.forms.map(form => form.code_formation));
+            //         res.push(doc.forms.map(form => { return { 'bac': doc._id, 'code': form.id} }));
+            //         console.log("------------ RES ------------------\n");
+            //         console.log(res);
+            //         console.log("------------ END RES ------------------\n");
+            //         /*output = cartesian.apply(this,res)
+            //         console.log("------------ OUTPUT ------------------\n");
+            //         console.log(output);*/
+
+            //         // for(let i = 0; i< doc.lentgth; i++){
+
+
+            //         // }
+            //     })
+            // }
+
+            // convert JSON object to string
+            // const data = JSON.stringify(output, null, 4);
+
+            // // write JSON string to a file
+            // fs.writeFile('parcours.json', data, (err) => {
+            //     if (err) {
+            //         throw err;
+            //     }
+            //     console.log("JSON data is saved.");
+            // });
+            // console.log("--------------- LA VRAIE FIN -------------------- \n")
+
         }))
     }
+
+    // Search metier
+    static async searchParcours1(metier){
+        return new Promise(async (resolve, reject) => {
+            const metiers = await MetierFormation.find({ nom: { $regex: metier , $options: 'i'} }).select({nom: 1, id_metier: 1 }).catch(error => {
+                reject(error);
+            });
+
+            resolve(metiers);
+        });
+    }
+
+    static async searchParcours2(idMetier,niveau,ville=null){
+        console.log(idMetier);
+        return new Promise(async (resolve, reject) => {
+            const parcours = await MetierFormation.find({ id_metier: mongoose.Types.ObjectId(idMetier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
+                reject(error);
+            });
+
+            let formations = [];
+            parcours.forEach(parcours_ => {
+                parcours_.formations.forEach(formation => {
+                    if (formation.niveau_entree === niveau) {
+                        let formationsForVille = formation.codes_formations;
+                        if (ville) {
+                            formations = formationsForVille.filter(f => f.ville === ville);
+                        } else {
+                            formations = formationsForVille;
+                        }
+                    }
+                });
+            });
+
+            const formationsFull = [];
+            await globalFunc.asyncForEach(formations, (async idFormation => {
+                const formation = await Formation.findById(idFormation.id).catch(error => {
+                    console.log(error);
+                });
+                if (formation) {
+                    formationsFull.push(formation);
+                }
+            }));
+
+            resolve(formationsFull);
+        });
+    }
+
+    static async updateParcours(id_parcours, userId, id_formation=null,index=null,inplace=false){
+        return new Promise( async (resolve,reject) => {
+            const parcours_ = await Parcours.findOne({_id: mongoose.Types.ObjectId(id_parcours), user_id: userId}).catch(error => {
+                reject(error);
+            });
+
+            if(parcours_) {
+                let del_value = inplace ? 1:0 ;
     
+                
+                if(index){
+                    if(id_formation){
+                        // cas où on ajoute une formation (si inplace vaut true on supprime l'ancienne valeur)
+                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).select({nom: 1, code_formation: 1,id_onisep: 1,code_rncp: 1,type_formation: 1,nature_formation: 1,niveau_sortie: 1,niveau_entree: 1,duree_cycle_standard: 1,url_diplome: 1,cout_scolarite: 1,modalite_scolarite: 1,code_uai_ecole: 1}).catch(error => {
+                            reject(error);
+                        });
+                        parcours_.formations.splice(index,del_value,formationFull);
+                        console.log("-------- parcours_ \n",parcours_.formations);
+                    }else{
+                        // cas où on se contente de supprimer une valeur
+                        parcours_.formations.splice(index,1);
+                    }
+                }else{
+                    if(id_formation){
+                        // cas où on se contente de rajouter la formation en fin de liste
+                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).select({nom: 1, code_formation: 1,id_onisep: 1,code_rncp: 1,type_formation: 1,nature_formation: 1,niveau_sortie: 1,niveau_entree: 1,duree_cycle_standard: 1,url_diplome: 1,cout_scolarite: 1,modalite_scolarite: 1,code_uai_ecole: 1}).catch(error => {
+                            reject(error);
+                        });
+                        parcours_.formations.push(formationFull);
+                        console.log("-------- parcours_ \n",parcours_.formations);
+                    }else{
+                        reject(new Error("Aucune formation renseigné"));
+                    }
+                }
+    
+                const parcours_res = await Parcours.updateOne({_id:mongoose.Types.ObjectId(id_parcours)},{formations:parcours_.formations,updatedAt:new Date()}).catch(error => {
+                    reject (error);
+                })
+    
+                resolve(parcours_res);
+    
+                // const parcours = await Parcours.findByIdAndUpdate(mongoose.Types.ObjectId(id_parcours),).catch(error => {
+                //     reject(error);
+                // });
+            } else {
+                reject(new Error('Le parcours n\'existe pas'));
+            }
+
+
+        })
+
+    }
+
+    static list_Parcours(limit = 100, page = 0, nom = '.*', id_user){
+        if(limit > 1000) { limit = 1000; }
+
+        console.log("le nom vaut " + nom + " et l'utilisateur est " + id_user);
+        nom = globalFunc.replaceSpecialChars(nom);
+        return new Promise( async (resolve,reject) => {
+            const arrayParcours = await Parcours.find({'user_id' : mongoose.Types.ObjectId(id_user), 'nom': { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
+                reject(error);
+            });
+            //const value2 = value;
+            const parcoursList = arrayParcours.map((parcours, key) => {
+                // console.log('value2', value2);
+                return {
+                    key: key,
+                    nom: parcours.nom,
+                    formations: parcours.formations,
+                    id_metier: parcours.id_metier
+                }
+            });
+            resolve (parcoursList);
+        })
+    }
+
 
 }

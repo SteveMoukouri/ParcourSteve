@@ -8,12 +8,14 @@ const formationSchema = new mongoose.Schema({
     domaine: [String],  //{ type: String, required: true },
     type_formation: {type:String, required:true},
     nature_formation: {type:String, required:true},
-    niveau_sortie: {type:String, required:true},
+    niveau_sortie: {type:Number, required:true},
+    niveau_entree:{type:Number, required:true},
     duree_cycle_standard: {type:String, required:true},
     url_diplome:{ type: String },
     cout_scolarite: {type: String},
     modalite_scolarite: { type: String },
-    date_modif: { type: String },
+    date_modif: { type: Date },
+    code_uai_ecole:{ type: String },
     id_ecole:{type:mongoose.Schema.Types.ObjectId, ref:'ecole'},
     id_metier:{type:mongoose.Schema.Types.ObjectId, ref:'metier'}
 });

@@ -1,29 +1,32 @@
-const Global = require("../global");
 const fs = require('fs');
+const moment = require('moment');
+moment.locale('fr');
 
 const Ecole = require("../mongodb-schemas/ecole");
 const Metier = require("../mongodb-schemas/metier");
 const Formation = require("../mongodb-schemas/formation");
 
+const Global = require("../global");
+const ParcoursFunc = require("./../tools/parcours");
 
 module.exports = (async() =>{
     const rawdatas = fs.readFileSync('D:/_DOCUMENTS/Mes documents/Cours_Web_M1/parcourSteveIA/New Databases/output3.json');
     const datas = JSON.parse(rawdatas);
 
     //nb ecole distincte :
-    console.log('Ajout des métiers et formations ...');
     // Formation.find({}).distinct('id_ecole', function(error, ids) {
-    //     console.log(ids.length);
-    // });
-
-    // Formation.find({}).distinct('id_onisep', function(error, ids) {
-    //     console.log(ids.length);
-    // });
-    
-
-    //AJOUT FORMATION MIN & METIER :
-    
-    /*await Global.asyncForEach(datas, (async data => { 
+        //     console.log(ids.length);
+        // });
+        
+        // Formation.find({}).distinct('id_onisep', function(error, ids) {
+            //     console.log(ids.length);
+            // });
+            
+            
+            //AJOUT FORMATION MIN & METIER :
+            
+    console.log('Ajout des métiers et formations ...');
+    await Global.asyncForEach(datas, (async data => { 
         // console.log(data.niveau_acces_min, data.nom_metier, data.identifiant);
         // console.log(data.secteurs_activite.map(secteur => secteur.libelle));
         // console.log(data.formations_min_requise);
@@ -48,7 +51,7 @@ module.exports = (async() =>{
                 nom: Global.replaceSpecialChars(data.nom_metier), //data.nom_metier,
                 code_metier: data.identifiant,
                 secteur_activite: secteurActivite,
-                niveau_access_minimum: data.niveau_acces_min.libelle
+                niveau_access_minimum: Number((data.niveau_acces_min.libelle).replace(/\D/g, ''))
             });
 
             const nouveauMetierBDD = await nouveauMetier.save().catch(error => {
@@ -65,12 +68,14 @@ module.exports = (async() =>{
                             domaine: formation.domaine.split(/[,|]/),
                             type_formation: formation.type_formation,
                             nature_formation: formation.nature_formation,
-                            niveau_sortie: formation.niveau_sortie,
+                            niveau_sortie: Number((formation.niveau_sortie).replace(/\D/g, '')),
+                            niveau_entree: ParcoursFunc.triFormation(formation.niveau_sortie, formation.duree_cycle_standard),
                             duree_cycle_standard: formation.duree_cycle_standard,
                             url_diplome: formation.url_diplome,
                             cout_scolarite: formation.cout_scolarite,
                             modalite_scolarite: formation.modalite_scolarite,
-                            date_modif: formation.date_modif,
+                            date_modif: moment(formation.date_modif, 'DD/MM/YYYY').toDate(),
+                            code_uai_ecole: formation.id_formateur,
                             id_ecole:listeEcoles2[formation.id_formateur],
                             id_metier: nouveauMetierBDD._id
                         });
@@ -83,10 +88,11 @@ module.exports = (async() =>{
             }
             
         }
-    })); */
+    })); 
 
     //AJOUT DES FORMATIONS RESTANTES (formation non minimum pour accéder à un métier):
-
+    
+    console.log('Ajout des formations restantes ... ');
     const formation_rest = await Global.csvParse('D:/_DOCUMENTS/Mes documents/Cours_Web_M1/parcourSteveIA/New Databases/list_formation1.csv', ';').catch(error => {
         console.log(error);
     });
@@ -113,12 +119,14 @@ module.exports = (async() =>{
                         domaine: elem["FOR indexation domaine web Onisep"].split(/[,|]/),
                         type_formation: elem["FOR type"],
                         nature_formation: elem["FOR nature du certificat"],
-                        niveau_sortie: elem["FOR niveau de sortie"],
+                        niveau_sortie: Number((elem["FOR niveau de sortie"]).replace(/\D/g, '')),
+                        niveau_entree: ParcoursFunc.triFormation(elem["FOR niveau de sortie"],  elem["AF durée cycle standard"]),
                         duree_cycle_standard: elem["AF durée cycle standard"],
                         url_diplome: elem["FOR URL référentiel"],
                         cout_scolarite: elem["AF coût scolarité"],
                         modalite_scolarite: elem["AF modalités scolarité"],
-                        date_modif: elem["AF date de modification"],
+                        date_modif: moment(elem["AF date de modification"], 'DD/MM/YYYY').toDate(),
+                        code_uai_ecole: elem["ENS code UAI"],
                         id_ecole:ecoleTrouvee._id
                     });
             
@@ -211,5 +219,6 @@ module.exports = (async() =>{
         });
     } */
 
-    console.log('Fin de l\'ajout des métiers et formations ...');
+    console.log('Fin de l\'ajout des métiers et formations.');
+    process.exit();
 })

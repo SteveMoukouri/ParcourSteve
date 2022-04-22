@@ -4,7 +4,7 @@ const metierSchema = new mongoose.Schema({
     nom: { type:String, required:true, unique:true },
     code_metier: { type:String, required:true },
     secteur_activite: [String],
-    niveau_access_minimum: { type: String, required: true }
+    niveau_access_minimum: { type: Number, required: true }
 });
 
 metierSchema.index({nom: 'text'});
