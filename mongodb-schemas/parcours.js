@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
+const Formation = require('./formation').schema;
 
 const parcoursSchema = new mongoose.Schema({
     nom: {type:String},
     createdAt: {type: Date, default: Date.now},
     updatedAt: {type: Date, default: Date.now},
     user_id:{type:mongoose.Schema.Types.ObjectId, ref:'user'},
-    formations: [{type:mongoose.Schema.Types.ObjectId, ref:'formation'}],
+    formations: [Formation],
     id_metier:{type:mongoose.Schema.Types.ObjectId, ref:'metier'},
     helpers: [{
         name: String,

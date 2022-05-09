@@ -16,10 +16,12 @@ const userSchema = new mongoose.Schema({
         city: String,
         region: String,
         country: {type:String, default:"France"},
-        lat_lng: String
+        lat_lng: { type: "Point",coordinates: [Number] }
     },
     register_date: { type: Date, required: true, default: Date.now }
 });
+
+userSchema.createIndex( { lat_lng : "2dsphere" } )
 
 const User = mongoose.model('user', userSchema);
 

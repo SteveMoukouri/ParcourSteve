@@ -29,7 +29,7 @@ router.post('/add',async (req,res) => {
 
     try {
         const body = await schema.validateAsync(req.body);
-        const nouvelleEcole = Ecole({
+        const nouvelleEcole = new Ecole({
             nom: body.nom,
             public: body.public,
             adresse:{

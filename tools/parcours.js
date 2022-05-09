@@ -1,6 +1,8 @@
 const Metier = require('../mongodb-schemas/metier');
 const Formation = require ('../mongodb-schemas/formation');
 const Ecole = require('../mongodb-schemas/ecole');
+const User = require('../mongodb-schemas/user');
+
 const mongoose = require('mongoose');
 
 const globalFunc = require('../global');
@@ -105,7 +107,7 @@ module.exports = class ParcoursFunc {
     // Search metier
     static async searchParcours1(metier){
         return new Promise(async (resolve, reject) => {
-            const metiers = await MetierFormation.find({ nom: { $regex: metier , $options: 'i'} }).select({nom: 1, id_metier: 1 }).catch(error => {
+            const metiers = await MetierFormation.find({ nom_recherche: { $regex: metier , $options: 'i'} }).select({nom: 1, id_metier: 1 }).catch(error => {
                 reject(error);
             });
 
@@ -114,7 +116,6 @@ module.exports = class ParcoursFunc {
     }
 
     static async searchParcours2(idMetier,niveau,ville=null){
-        console.log(idMetier);
         return new Promise(async (resolve, reject) => {
             const parcours = await MetierFormation.find({ id_metier: mongoose.Types.ObjectId(idMetier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
                 reject(error);
@@ -148,24 +149,94 @@ module.exports = class ParcoursFunc {
         });
     }
 
-    static async updateParcours(id_parcours, userId, id_formation=null,index=null,inplace=false){
+    static async addHelper(id_parcours,userId,helperId){
+        return new Promise (async (resolve,reject) => {
+            const parcours_ = await Parcours.findOne({_id: mongoose.Types.ObjectId(id_parcours),user_id:userId}).catch(error => {
+                reject(error);
+            });
+
+            if(parcours_){
+                const helperUser = await User.findById(mongoose.Types.ObjectId(helperId)).catch(error => {
+                    reject(error);
+                })
+                if(helperUser){
+                    const helperFull = {
+                        name: helperUser.name ,
+                        username: helperUser.username,
+                        user_id: helperUser._id
+                    }
+                    console.log(parcours_.helpers, helperFull);
+                    if(parcours_.helpers === null) {
+                        // On crée le tableau helpers
+                        parcours_.helpers = [helperFull];
+                    } else {
+                        // on met à jour le tableau helpers
+                        if (parcours_.helpers.some(helper => (helper.user_id).equals(helperFull.user_id) )) {
+                            /* helpers contains the element we're looking for */
+                            reject(new Error("Vous avez deja accepte cet utilisateur"))
+    
+                        }else {
+                            parcours_.helpers.push(helperFull);
+                        }
+                    }
+
+                    const parcours_res = await Parcours.findByIdAndUpdate(mongoose.Types.ObjectId(id_parcours), {helpers:parcours_.helpers,updatedAt:new Date()}).catch(error => {
+                        reject (error);
+                    });
+                    resolve(parcours_res);
+                }else{
+                    reject(new Error("Cet utilisateur n'existe pas"));
+                }
+            }else{
+                reject( new Error ("Ce parcours n'existe pas "));
+            }
+        })
+    }
+
+    static async updateParcours(id_parcours, userId, id_formation=null,index=null,replace=false){
         return new Promise( async (resolve,reject) => {
-            const parcours_ = await Parcours.findOne({_id: mongoose.Types.ObjectId(id_parcours), user_id: userId}).catch(error => {
+            const parcours_ = await Parcours.findOne({
+                _id: mongoose.Types.ObjectId(id_parcours),
+                $or:[
+                    {user_id: userId},
+                    {'helpers.user_id':{$in:[userId]}}
+                ]
+            }).catch(error => {
                 reject(error);
             });
 
             if(parcours_) {
-                let del_value = inplace ? 1:0 ;
-    
-                
+                let del_value = replace ? 1:0 ;
+                   
                 if(index){
                     if(id_formation){
-                        // cas où on ajoute une formation (si inplace vaut true on supprime l'ancienne valeur)
-                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).select({nom: 1, code_formation: 1,id_onisep: 1,code_rncp: 1,type_formation: 1,nature_formation: 1,niveau_sortie: 1,niveau_entree: 1,duree_cycle_standard: 1,url_diplome: 1,cout_scolarite: 1,modalite_scolarite: 1,code_uai_ecole: 1}).catch(error => {
+                        // cas où on ajoute une formation (si replace vaut true on supprime l'ancienne valeur)
+                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).catch(error => {
                             reject(error);
                         });
-                        parcours_.formations.splice(index,del_value,formationFull);
-                        console.log("-------- parcours_ \n",parcours_.formations);
+                        if(formationFull){
+                            if(parcours_.formations === null){
+                                //On initialise le tableau
+                                parcours_.formation = [formationFull];
+                            }
+
+                            if(parcours_.formations[index] === null){
+                                //On vérifie que l'index existe
+                                index = parcours_.formations.length;
+                            }
+
+                            if(parcours_.formations.some(formation => (formation._id).equals(formationFull._id))){
+                                //On vérifie si la formation est déja présente
+                                reject(new Error("Vous avez déja rajouté cette formation"));
+                            }else{
+                                // On update le tableau en inserant la nouvelle valeur
+                                parcours_.formations.splice(index,del_value,formationFull);
+                            }
+                        }else{
+                            reject(new Error("la formation renseignée n'existe pas"));
+                        }
+
+
                     }else{
                         // cas où on se contente de supprimer une valeur
                         parcours_.formations.splice(index,1);
@@ -173,29 +244,38 @@ module.exports = class ParcoursFunc {
                 }else{
                     if(id_formation){
                         // cas où on se contente de rajouter la formation en fin de liste
-                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).select({nom: 1, code_formation: 1,id_onisep: 1,code_rncp: 1,type_formation: 1,nature_formation: 1,niveau_sortie: 1,niveau_entree: 1,duree_cycle_standard: 1,url_diplome: 1,cout_scolarite: 1,modalite_scolarite: 1,code_uai_ecole: 1}).catch(error => {
+                        const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).catch(error => {
                             reject(error);
                         });
-                        parcours_.formations.push(formationFull);
-                        console.log("-------- parcours_ \n",parcours_.formations);
+
+                        if(formationFull){
+                            if(parcours_.formations === null){
+                                //On initialise le tableau
+                                parcours_.formation = [formationFull];
+                            }
+
+                            if(parcours_.formations.some(formation => (formation._id).equals(formationFull._id))){
+                                //On vérifie si la formation est déja présente
+                                reject(new Error("Vous avez déja rajouté cette formation"));
+                            }else{
+                                parcours_.formations.push(formationFull);
+                            }
+                        }
+          
                     }else{
                         reject(new Error("Aucune formation renseigné"));
                     }
                 }
     
-                const parcours_res = await Parcours.updateOne({_id:mongoose.Types.ObjectId(id_parcours)},{formations:parcours_.formations,updatedAt:new Date()}).catch(error => {
+                const parcours_res = await Parcours.findByIdAndUpdate(mongoose.Types.ObjectId(id_parcours),{formations:parcours_.formations,updatedAt:new Date()}, {new: true}).catch(error => {
                     reject (error);
                 })
     
                 resolve(parcours_res);
-    
-                // const parcours = await Parcours.findByIdAndUpdate(mongoose.Types.ObjectId(id_parcours),).catch(error => {
-                //     reject(error);
-                // });
+
             } else {
                 reject(new Error('Le parcours n\'existe pas'));
             }
-
 
         })
 
@@ -210,17 +290,35 @@ module.exports = class ParcoursFunc {
             const arrayParcours = await Parcours.find({'user_id' : mongoose.Types.ObjectId(id_user), 'nom': { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
-            //const value2 = value;
-            const parcoursList = arrayParcours.map((parcours, key) => {
-                // console.log('value2', value2);
-                return {
-                    key: key,
-                    nom: parcours.nom,
-                    formations: parcours.formations,
-                    id_metier: parcours.id_metier
-                }
-            });
-            resolve (parcoursList);
+            if(arrayParcours.length > 0) {
+                //const value2 = value;
+                const parcoursList = arrayParcours.map((parcours, key) => {
+                    // console.log('value2', value2);
+                    return {
+                        key: key,
+                        nom: parcours.nom,
+                        formations: parcours.formations,
+                        id_metier: parcours.id_metier
+                    }
+                });
+                resolve (parcoursList);
+            } else {
+                reject(new Error('Aucun parcours trouvé'));
+            }
+        })
+    }
+
+    static deleteParcours(id_parcours,id_user){
+        console.log(id_user)
+        return new Promise( async (resolve,reject) => {
+            const deleted = await Parcours.deleteOne({_id: mongoose.Types.ObjectId(id_parcours), user_id: id_user}).catch(error => {
+                reject(error);
+            })
+            if (deleted.deletedCount > 0) {
+                resolve(true);
+            } else {
+                reject(new Error('Aucun parcours trouvé'));
+            }
         })
     }
 

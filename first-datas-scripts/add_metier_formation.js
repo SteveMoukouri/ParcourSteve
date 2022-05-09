@@ -7,7 +7,7 @@ const Metier = require("../mongodb-schemas/metier");
 const Formation = require("../mongodb-schemas/formation");
 
 const Global = require("../global");
-const ParcoursFunc = require("./../tools/parcours");
+const ParcoursFunc = require("../tools/parcours");
 
 module.exports = (async() =>{
     const rawdatas = fs.readFileSync('D:/_DOCUMENTS/Mes documents/Cours_Web_M1/parcourSteveIA/New Databases/output3.json');
@@ -48,7 +48,8 @@ module.exports = (async() =>{
             });
 
             const nouveauMetier = new Metier({
-                nom: Global.replaceSpecialChars(data.nom_metier), //data.nom_metier,
+                nom: data.nom_metier,
+                nom_recherche: Global.replaceSpecialChars(data.nom_metier),
                 code_metier: data.identifiant,
                 secteur_activite: secteurActivite,
                 niveau_access_minimum: Number((data.niveau_acces_min.libelle).replace(/\D/g, ''))
@@ -62,6 +63,7 @@ module.exports = (async() =>{
                     if (formation.id_formateur && listeEcoles2[formation.id_formateur] ) { 
                         const nouvelleFormation = new Formation({
                             nom: formation.libelle,
+                            nom_recherche: Global.replaceSpecialChars(formation.libelle),
                             code_formation: formation.id,
                             id_onisep: formation.id_onisep,
                             code_rncp: formation.code_rncp,
@@ -113,6 +115,7 @@ module.exports = (async() =>{
                     // On ajoute le nouveau diplome en BDD
                     const nouvelleFormation = new Formation({
                         nom: elem["Formation (FOR) libellé"],
+                        nom_recherche: Global.replaceSpecialChars(elem["Formation (FOR) libellé"]),
                         code_formation: elem["code_formation"],
                         id_onisep: elem["Action de Formation (AF) identifiant Onisep"],
                         code_rncp: elem["code_rncp"],

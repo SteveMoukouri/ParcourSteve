@@ -11,7 +11,7 @@ module.exports = class JobTools {
         console.log("le nom vaut " + nom );
         nom = Global.replaceSpecialChars(nom);
         return new Promise( async (resolve,reject) => {
-            const arrayJob = await Metier.find({'nom' : { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
+            const arrayJob = await Metier.find({'nom_recherche' : { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
             //const value2 = value;

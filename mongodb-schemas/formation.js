@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const formationSchema = new mongoose.Schema({
     nom: {type:String, required:true},
+    nom_recherche: {type: String, required : true},
     code_formation:{ type: String, required: true },
     id_onisep:{ type: String },
     code_rncp:{ type: String },

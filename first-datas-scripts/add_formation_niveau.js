@@ -80,6 +80,7 @@ module.exports = (async () => {
                 }
                 code_formations.push({ 
                     id: mongoose.Types.ObjectId(forma.id),
+                    id_ecole: mongoose.Types.ObjectId(forma.id_ecole),
                     ville: ville
                 });
             }));
@@ -92,6 +93,7 @@ module.exports = (async () => {
 
         const nouveauFormationsParNiveau = MetierFormation({
             nom: metier.nom,
+            nom_recherche: Global.replaceSpecialChars(metier.nom),
             id_metier: metier._id,
             formations:list_formations_new
         })

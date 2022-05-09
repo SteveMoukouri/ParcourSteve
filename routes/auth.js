@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
-var sha1 = require("crypto-js/sha1");
+const sha1 = require("crypto-js/sha1");
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 

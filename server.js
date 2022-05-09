@@ -5,8 +5,6 @@ var upload = multer();
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
 
-console.log(process.env.MOTDEPASSE)
-
 const mongoose = require('mongoose');
 mongoose.set('useCreateIndex', true);
 const connection = mongoose.connection;
@@ -19,10 +17,10 @@ const parse = require('csv-parse');
 // const globalFunc = require('./routes/fonctions/global');
 const write = require('write');
 
-const addEcole = require ("./crontab/add_ecole");
-const addFormation = require('./crontab/add_metier_formation');
+const addEcole = require ("./first-datas-scripts/add_ecole");
+const addFormation = require('./first-datas-scripts/add_metier_formation');
 const parcours = require('./tools/parcours');
-const addFormationParNiveau = require('./crontab/add_formation_niveau');
+const addFormationParNiveau = require('./first-datas-scripts/add_formation_niveau');
 const machinelearningTools = require ('./tools/machinelearningTools');
 
 mongoose.connect(`mongodb+srv://${process.env.USERMONGODB}:${process.env.PASSWORDMONGODB}@${process.env.HOSTMONGODB}/${process.env.MONGODBNAME}?retryWrites=true&w=majority`, {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true });
@@ -31,11 +29,11 @@ connection.on('error', error => {
 	console.error(`Connection to MongoDB error: ${error.message}`);
 });
 
-const crontabType = process.argv[2];
+const scriptType = process.argv[2];
 
 connection.once('open', () => {
 	console.log('Connected to MongoDB');
-  switch (crontabType) {
+  switch (scriptType) {
     case "addEcole":
       addEcole();
       break;
@@ -78,7 +76,7 @@ connection.once('open', () => {
   // parcours.createParcours("conseiller/ere en fusion-acquisition", 5);
 });
 
-if (crontabType === undefined) {
+if (scriptType === undefined) {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
 
@@ -135,13 +133,15 @@ if (crontabType === undefined) {
   const userRoute = require('./routes/user');
   const jobRoute = require ('./routes/job');
   const parcoursRoute = require ('./routes/parcours');
+  const needHelpRoute = require ('./routes/need_help');
 
   app.use('/api', indexRoute);
   app.use('/api/auth', authRoute);
   app.use('/api/school', schoolRoute);
-  app.use('/api/user', userRoute);
+  app.use('/api/user',authUser, userRoute);
   app.use('/api/job',jobRoute);
   app.use('/api/parcours', authUser, parcoursRoute);
+  app.use('/api/needHelp',authUser,needHelpRoute);
 
   app.get('/', (req, res) => {
     res.status(301).json('API Node Test')

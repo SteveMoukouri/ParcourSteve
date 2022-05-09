@@ -90,12 +90,12 @@ router.post('/update', async (req,res) =>{
         id_parcours: Joi.objectId().required(),
         id_formation: Joi.objectId(),
         index : Joi.number(),
-        inplace: Joi.boolean()
+        replace: Joi.boolean()
     });
 
     try {
         const body = await schema.validateAsync(req.body);
-        const parcours = await parcoursTools.updateParcours(body.id_parcours, req.headers.userId, body.id_formation,body.index,body.inplace).catch(error => {
+        const parcours = await parcoursTools.updateParcours(body.id_parcours, req.headers.userId, body.id_formation,body.index,body.replace).catch(error => {
             res.status(400).send(error.message)
         })
         if(parcours){
@@ -133,6 +133,49 @@ router.get('/list',async (req,res) => {
     }
 })
 
+router.post('/addHelper', async (req,res) =>{
+    const schema = Joi.object({
+        id_parcours: Joi.objectId().required(),
+        helperId: Joi.objectId().required()
+    });
 
+    try {
+        const body = await schema.validateAsync(req.body);
+        const parcours = await parcoursTools.addHelper(body.id_parcours, req.headers.userId, body.helperId).catch(error => {
+            res.status(400).send(error.message);
+        })
+        if(parcours){
+            res.status(200).json({
+                text: "Le collaborateur a bien été ajouté",
+                parcours : parcours
+            })
+        }
+      
+    } catch(error) {
+        res.status(400).send(error.message);
+    }
+
+})
+
+router.delete('/delete', async (req,res) => {
+    const schema = Joi.object({
+        parcoursId: Joi.objectId().required()
+    });
+    try {
+        const body = await schema.validateAsync(req.body);
+
+        const done = await parcoursTools.deleteParcours(body.parcoursId,req.headers.userId).catch(error => {
+            res.status(400).send(error.message)
+        });
+
+        if(done) {
+            res.status(200).json({
+                text: "Le parcours a bien été supprimé "
+            });
+        }
+    }catch(error){
+        res.status(400).send(error.message);
+    }
+})
 
 module.exports = router;
