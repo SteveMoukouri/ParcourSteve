@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const pointSchema = require('./child/point');
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -16,12 +17,20 @@ const userSchema = new mongoose.Schema({
         city: String,
         region: String,
         country: {type:String, default:"France"},
-        lat_lng: { type: "Point",coordinates: [Number] }
+        location: pointSchema
     },
-    register_date: { type: Date, required: true, default: Date.now }
+    register_date: { type: Date, required: true, default: Date.now },
+    sexe: String,
+    public:{ type:Boolean, default:true },
+    twitter: String,
+    instagram: String,
+    facebook: String,
+    linkedin: String,
+    about: String
+
 });
 
-userSchema.createIndex( { lat_lng : "2dsphere" } )
+userSchema.index( { 'address.location' : '2dsphere' } );
 
 const User = mongoose.model('user', userSchema);
 

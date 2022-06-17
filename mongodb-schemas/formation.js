@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const noteSchema = require('./child/note');
 
 const formationSchema = new mongoose.Schema({
     nom: {type:String, required:true},
@@ -18,7 +19,8 @@ const formationSchema = new mongoose.Schema({
     date_modif: { type: Date },
     code_uai_ecole:{ type: String },
     id_ecole:{type:mongoose.Schema.Types.ObjectId, ref:'ecole'},
-    id_metier:{type:mongoose.Schema.Types.ObjectId, ref:'metier'}
+    id_metier:{type:mongoose.Schema.Types.ObjectId, ref:'metier'},
+    note: noteSchema,
 });
 formationSchema.index({domaine: 'text'});
 const Formation = mongoose.model("formation", formationSchema);

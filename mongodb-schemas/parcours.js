@@ -12,7 +12,9 @@ const parcoursSchema = new mongoose.Schema({
         name: String,
         username: String,
         user_id: {type:mongoose.Schema.Types.ObjectId, ref:'user',required :true}
-    }]
+    }],
+    public:{type: Boolean, default: false}
+
 });
 
 const Parcours = mongoose.model("parcours", parcoursSchema);

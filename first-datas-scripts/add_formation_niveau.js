@@ -13,6 +13,7 @@ module.exports = (async () => {
         console.log(error)
     })
     // Récupération des formations qui permettent d'accéder directement à un metier
+    let  domaine_fin2 = []
     await Global.asyncForEach(metiers, (async metier => {
         const formations_sortie = await Formation.find({ id_metier: metier._id}).select({nom: 1, domaine:1 }).catch(error => {
             console.log(error);
@@ -29,7 +30,7 @@ module.exports = (async () => {
         // console.log(list_domaine, '\n\n');
         let domaine_fin = list_domaine[0];
         // console.log(domaine_fin);
-        let domaine_fin2 = [];
+        //let domaine_fin2 = [];
     
         // On garde l'intersection entre les différents domaines
         list_domaine.forEach(secteur => {
@@ -42,7 +43,7 @@ module.exports = (async () => {
         // console.log('domaine_fin final', domaine_fin);
         // if (list_domaine.length > 0) process.exit();
 
-        const regex_domaine_fin2 = domaine_fin2.map(function (domaine) { return new RegExp(domaine.trim(), "i"); });
+        regex_domaine_fin2 = domaine_fin2.map(function (domaine) { return new RegExp(domaine.trim(), "i"); });
     
         let list_formations = await Formation.aggregate([
             {
@@ -68,20 +69,20 @@ module.exports = (async () => {
             
             const code_formations = [];
             await Global.asyncForEach(niveau.formations, (async forma => {
-                let ville = '';
+                let location = null;
                 if(ecoles[forma.id_ecole]) {
-                    ville = ecoles[forma.id_ecole].ville;
+                    location = ecoles[forma.id_ecole].location;
                 } else {
-                    const ecole = await Ecole.findById(forma.id_ecole).select({"adresse.ville": 1}).catch(error => {
+                    const ecole = await Ecole.findById(forma.id_ecole).select({"address.location": 1}).catch(error => {
                         console.log(error);
                     })
-                    ecoles[forma.id_ecole] = { ville: ecole.adresse.ville};
-                    ville = ecole.adresse.ville;
+                    ecoles[forma.id_ecole] = { location: ecole.address.location};
+                    location = ecole.address.location;
                 }
                 code_formations.push({ 
                     id: mongoose.Types.ObjectId(forma.id),
                     id_ecole: mongoose.Types.ObjectId(forma.id_ecole),
-                    ville: ville
+                    location: location
                 });
             }));
 
@@ -94,6 +95,7 @@ module.exports = (async () => {
         const nouveauFormationsParNiveau = MetierFormation({
             nom: metier.nom,
             nom_recherche: Global.replaceSpecialChars(metier.nom),
+            domaine_commun: domaine_fin2,
             id_metier: metier._id,
             formations:list_formations_new
         })

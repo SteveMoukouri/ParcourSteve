@@ -14,6 +14,7 @@ const port = 3000
 const CronJob = require('cron').CronJob;
 const fs = require('fs');
 const parse = require('csv-parse');
+var cors = require('cors');
 // const globalFunc = require('./routes/fonctions/global');
 const write = require('write');
 
@@ -51,7 +52,8 @@ connection.once('open', () => {
       parcours.searchParcours1('meteorologiste').then(metiers => {
         console.log(metiers);
         if (metiers.length > 0) {
-          parcours.searchParcours2(metiers[0].id_metier, 2, "Pessac").then(formations => {
+          const localisation = [1.37422, 43.57598];
+          parcours.searchParcours2(metiers[0].id_metier, 2,localisation).then(formations => {
             console.log(formations);
           });
         }
@@ -62,7 +64,8 @@ connection.once('open', () => {
       parcours.searchParcours1('meteorologiste').then(metiers => {
         console.log(metiers);
         if (metiers.length > 0) {
-          parcours.createParcours(metiers[0].id_metier, 2).then(formations => {
+          const localisation = [1.37422, 43.57598];
+          parcours.createParcours(metiers[0].id_metier, 2, localisation).then(formations => {
             console.log(formations);
           });
         }
@@ -77,8 +80,58 @@ connection.once('open', () => {
 });
 
 if (scriptType === undefined) {
+
+  // const params = { 
+  //   list_profile: ["femme"]
+  // }
+  // console.log(params)
+
+  // parcours.getBestFormation(params).then(formation => {
+  //   console.log(formation);
+  //   // if (metiers.length > 0) {
+  //   //   const localisation = [1.37422, 43.57598];
+  //   //   parcours.createParcours(metiers[0].id_metier, 2, localisation).then(formations => {
+  //   //     console.log(formations);
+  //   //   });
+  //   // }
+  // });
+
+
+
+//   const User = require('./mongodb-schemas/user');
+
+//   User.find(
+//     {
+//       'address.location':
+//         { $near:
+//            {
+//              $geometry: { type: "Point",  coordinates: [48.860294, 2.338629] },
+//              $minDistance: 0,
+//              $maxDistance: 5000
+//            }
+//         }
+//     }
+//  ).then(users => {
+//    console.log(users);
+//  });
+
+//  User.aggregate( [
+//   {
+//      $geoNear: {
+//        query: { }, // c'est le find()
+//         near: { type: "Point", coordinates: [48.860294, 2.338629] },
+//         spherical: true,
+//         distanceField: "calcDistance"
+//      }
+//   }
+// ] ).then(users => {
+//   console.log(users);
+// });
+
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
+
+  app.use(cors());
 
   // for parsing application/json
   app.use(bodyParser.json()); 
@@ -116,6 +169,7 @@ if (scriptType === undefined) {
       try{
         const decoded = jwt.verify(token, process.env.SECRETKEYTOKEN);
         req.headers.userId = decoded.userId;
+        req.headers.userSexe = decoded.userSexe;
 
         next();
       } catch(error) {
@@ -134,6 +188,7 @@ if (scriptType === undefined) {
   const jobRoute = require ('./routes/job');
   const parcoursRoute = require ('./routes/parcours');
   const needHelpRoute = require ('./routes/need_help');
+  const followRoute = require('./routes/follow');
 
   app.use('/api', indexRoute);
   app.use('/api/auth', authRoute);
@@ -142,6 +197,7 @@ if (scriptType === undefined) {
   app.use('/api/job',jobRoute);
   app.use('/api/parcours', authUser, parcoursRoute);
   app.use('/api/needHelp',authUser,needHelpRoute);
+  app.use('/api/follow',authUser,followRoute);
 
   app.get('/', (req, res) => {
     res.status(301).json('API Node Test')

@@ -5,33 +5,33 @@ module.exports = class EcoleTools {
 
     constructor() {}
 
-    static list_Ecole(limit = 100, page = 0, nom = '.*', ville = '.*'){
+    static list_Ecole(limit = 100, page = 0, nom = '.*', location, min_dist, max_dist){
+        /* Cette methode renvois la liste des ecoles en fonction de la distance indiquée  */
         if(limit > 1000) { limit = 1000; }
-        // if(!ville){
-        //     ville = '';
-        //     console.log(ville);
-        // }
-        // if(!nom){
-        //     nom = '';
-        //     console.log(nom);
-        // }
-        console.log("le nom vaut " + nom + " et la ville est " + ville);
+
         nom = Global.replaceSpecialChars(nom);
-        ville = Global.replaceSpecialChars(ville);
+
         return new Promise( async (resolve,reject) => {
-            const arrayEcole = await Ecole.find({'nom_recherche' : { $regex: '^(' + nom + ')', $options: 'i'}, 'adresse.ville' : { $regex: '^(' + ville + ')', $options: 'i'} }).skip(limit*page).limit(limit).catch(error =>{
-                reject(error);
-            });
-            //const value2 = value;
-            const ecoleList = arrayEcole.map((ecole, key) => {
-                // console.log('value2', value2);
-                return {
-                    key: key,
-                    nom: ecole.nom,
-                    adresse: ecole.adresse
+
+            //On recherche les ecoles à proximite de la localisation situees entre min_dist et max_dist
+
+            const ecoles_proximite = await Ecole.find(
+                {
+                  'address.location':
+                    { $near:
+                       {
+                         $geometry: { type: "Point",  coordinates: location },
+                         $minDistance: min_dist,
+                         $maxDistance: max_dist
+                       }
+                    },
+                    nom_recherche : { $regex: '^(' + nom + ')', $options: 'i'}
                 }
-            });
-            resolve (ecoleList);
+            ).skip(limit*page).limit(limit).catch(error => {
+                reject(error);
+            })
+
+            resolve (ecoles_proximite);
 
         })
     }

@@ -13,7 +13,7 @@ router.post('/add',async (req,res) => {
     const schema = Joi.object({
         nom: Joi.string().required().max(100),
         public: Joi.boolean().required(),
-        adresse: Joi.object({
+        address: Joi.object({
             departement: Joi.string().required(),
             ville: Joi.string().required(),
             region:  Joi.string().required(),
@@ -32,7 +32,7 @@ router.post('/add',async (req,res) => {
         const nouvelleEcole = new Ecole({
             nom: body.nom,
             public: body.public,
-            adresse:{
+            address:{
                 departement: body.line1,
                 ville: body.ville,
                 region: body.region,
@@ -65,22 +65,42 @@ router.get('/list', async (req,res) =>{
     const schema = Joi.object({
         limit: Joi.number().min(0).max(1000),
         page: Joi.number().min(0),
-        nom: Joi.string(),
-        ville: Joi.string()
-    });
-
+        min: Joi.number().min(0),
+        max: Joi.number(),
+        lat: Joi.number().precision(8),
+        lng:Joi.number().precision(8),
+        address: Joi.string()
+    })
     try {
         const query = await schema.validateAsync(req.query);
-        
-        const listEcole = await ecoleTools.list_Ecole(query.limit, query.page, query.nom,query.ville).catch(error => {
-            res.status(400).send(error.message)
-        })
-        console.log("on affiche le resultat");
 
-        res.status(200).json({
-            texte: "Liste de " + query.limit + " ecoles",
-            ecoles: listEcole
-        })
+        let location = [];
+
+        if(query.lat && query.lng) {
+            location = [query.lng, query.lat];
+        } else if (query.address) {
+            const loc = await GlobalFunc.getLocation(query.address).catch(error => {
+                res.status(400).send(error.message);
+            });
+            if(loc) {
+                location = [loc.lng, loc.lat]
+            }
+        } else {
+            res.status(400).send('Veuillez saisir une adresse ou lat/lng');
+        }
+
+        if(location.length === 2) {
+            console.log(location);
+
+            const ecole = await ecoleTools.list_Ecole(query.limit,query.page,location,query.min,query.max).catch(error => {
+                res.status(400).send(error.message)
+            });
+
+            res.status(200).json({
+                text: "La liste des ecoles est : ",
+                ecoles : ecole
+            });
+        }
     } catch(error) {
         res.status(400).send(error.message);
     }

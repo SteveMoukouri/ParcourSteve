@@ -7,6 +7,8 @@ const Parcours = require("../mongodb-schemas/parcours");
 const Metier = require("../mongodb-schemas/metier");
 const parcoursTools = require("../tools/parcours");
 
+const Global = require("../global");
+
 router.get('/selectJob', async (req,res) =>{
     console.log(req.headers.userId);
     const schema = Joi.object({
@@ -29,23 +31,48 @@ router.get('/selectJob', async (req,res) =>{
 
 })
 
-router.get('/selectFormation',async (req,res) => {
+router.post('/selectFormation',async (req,res) => {
     const schema = Joi.object({
-        city: Joi.string(),
         grade: Joi.number().min(0).max(8),
-        job_id: Joi.objectId().required(),
+        parcours_id: Joi.objectId().required(),
+        lat: Joi.number().precision(8),
+        lng:Joi.number().precision(8),
+        address: Joi.string(),
+        list_profile:Joi.array().items(Joi.string()),
+        type_ecole:Joi.string(),
+        limit:Joi.number().max(200)
     })
     try {
-        const query = await schema.validateAsync(req.query);
+        const body = await schema.validateAsync(req.body);
 
-        const formations = await parcoursTools.searchParcours2(query.job_id,query.grade,query.city).catch(error => {
+        let location = [];
+
+        if(body.lat && body.lng) {
+            location = [body.lng, body.lat];
+        } else if (body.address) {
+            const loc = await Global.getLocation(body.address).catch(error => {
+                res.status(400).send(error.message);
+            });
+            if(loc) {
+                location = [loc.lng, loc.lat]
+            }
+        } else {
+            res.status(400).send('Veuillez saisir une adresse ou lat/lng');
+        }
+
+        const formations = await parcoursTools.searchParcours2(body.parcours_id, body.grade, req.headers.userSexe, body.list_profile, body.type_ecole,location,body.limit).catch(error => {
             res.status(400).send(error.message)
         });
 
-        res.status(200).json({
-            text: "Les Formations correspondantes :",
-            formations : formations
-        });
+        if(formations){
+            res.status(200).json({
+                text: "Les Formations correspondantes :",
+                formations : formations
+            });
+        }else{
+            res.status(400).send("Un problème est survenu dans votre requete")
+        }
+
     }catch(error){
         res.status(400).send(error.message);
     }
@@ -90,12 +117,13 @@ router.post('/update', async (req,res) =>{
         id_parcours: Joi.objectId().required(),
         id_formation: Joi.objectId(),
         index : Joi.number(),
-        replace: Joi.boolean()
+        replace: Joi.boolean(),
+        isPublic: Joi.boolean()
     });
 
     try {
         const body = await schema.validateAsync(req.body);
-        const parcours = await parcoursTools.updateParcours(body.id_parcours, req.headers.userId, body.id_formation,body.index,body.replace).catch(error => {
+        const parcours = await parcoursTools.updateParcours(body.id_parcours, req.headers.userId, body.id_formation,body.index,body.replace,body.isPublic).catch(error => {
             res.status(400).send(error.message)
         })
         if(parcours){
@@ -172,6 +200,28 @@ router.delete('/delete', async (req,res) => {
             res.status(200).json({
                 text: "Le parcours a bien été supprimé "
             });
+        }
+    }catch(error){
+        res.status(400).send(error.message);
+    }
+})
+
+router.get('/formations',async (req,res) => {
+    const schema = Joi.object({
+        parcoursId: Joi.objectId().required()
+    });
+
+    try {
+        const query = await schema.validateAsync(req.query);
+        const list_formations = await parcoursTools.list_parcours_formations(query.parcoursId, req.headers.userId).catch(error =>{
+            res.status(400).send(error.message);
+        });
+        if(list_formations){
+            res.status(200).json({
+                message: "La liste des formations du parcours",
+                formations: list_formations.formations,
+                parcours_name: list_formations.parcours_name
+            })
         }
     }catch(error){
         res.status(400).send(error.message);

@@ -9,17 +9,18 @@ module.exports = class NeedHelpTools {
     constructor() {}
 
     static list_Request(limit = 100, page = 0, username = '.*'){
+        /* Cette methode renvois la liste des demandes d'aide pour la creation d un parcours  */
+    
         if(limit > 1000) { limit = 1000; }
 
         return new Promise( async (resolve,reject) => {
             const arrayRequest = await NeedHelp.find({username : { $regex: '^(' + username + ')'}}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
-            //const value2 = value;
-            console.log("------ ARRAY REQUEST ----- \n",arrayRequest);
+
             if(arrayRequest){
                 const requestList = arrayRequest.map((request, key) => {
-                    // console.log('value2', value2);
+
                     return {
                         key: key,
                         nom: request.nom,
@@ -37,6 +38,10 @@ module.exports = class NeedHelpTools {
     }
 
     static addHelper(request_id,id_user){
+
+        /* Cette methode permet de proposer son aide 
+            à un utilisateur ayant effectue une demande d aide  */
+
         return new Promise(async (resolve,reject) => {
             const request = await NeedHelp.findById(mongoose.Types.ObjectId(request_id)).catch(error => {
                 reject(error);

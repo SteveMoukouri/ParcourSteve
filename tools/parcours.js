@@ -4,17 +4,20 @@ const Ecole = require('../mongodb-schemas/ecole');
 const User = require('../mongodb-schemas/user');
 
 const mongoose = require('mongoose');
+const axios = require('axios')
 
 const globalFunc = require('../global');
 const fs = require('fs');
 const MetierFormation = require('../mongodb-schemas/metier-formation');
 const Parcours = require("../mongodb-schemas/parcours");
-const { updateOne } = require('../mongodb-schemas/metier');
+
+//const { updateOne } = require('../mongodb-schemas/metier');
 
 module.exports = class ParcoursFunc {
     constructor() {}
 
     static triFormation(niveau_sortie,duree_cycle) {
+        /* Cette methode renvoit le niveau d entree d une formation  */
 
         const sortie = Number(niveau_sortie.replace(/\D/g, ''));
         const cycle = Number(duree_cycle.replace(/\D/g, ''));
@@ -22,7 +25,9 @@ module.exports = class ParcoursFunc {
         return sortie - cycle ;
     }
 
-    static createParcours(idMetier,niveau,ville=null){
+    static createParcours(idMetier,niveau,localisation){
+        /* Cette methode genere un parcours automatique pour le metier indique  
+            à partir d'un niveau et d'une localisation  */
 
         return (new Promise (async (resolve,reject) => {
             const metier_choisi = await MetierFormation.find({ id_metier: mongoose.Types.ObjectId(idMetier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
@@ -31,26 +36,26 @@ module.exports = class ParcoursFunc {
             console.log("J AFFICHE LE METIER / \n",metier_choisi);
 
             let formations = [];
-            let formationsForVille = [];
 
             metier_choisi.forEach(job => {
                 job.formations.forEach(formation => {
                     if (formation.niveau_entree >= niveau) {
-                        formationsForVille.push(formation.codes_formations);
-                        if (ville) {
-                            formations = formationsForVille.filter(f => f.ville === ville);
-                        } else {
-                            formations = formationsForVille;
+                        let formationsForVille = formation.codes_formations;
+                        // console.log('formationsForVille', formationsForVille);
+                        formationsForVille = formationsForVille.filter(f => globalFunc.calcCrow(f.location.coordinates[1], f.location.coordinates[0], localisation[1], localisation[0]) <= 50);
+                        
+                        if(formationsForVille.length > 0) {
+                            formations.push(formationsForVille);
                         }
                     }
                 });
-                //console.log("----------------------- \n J'AFFICHE LES FORMATIONS \n",formations);
+                console.log("----------------------- \n J'AFFICHE LES FORMATIONS \n",formations);
             });
 
-            const cartesian = (...a) => a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())));
-            let output = [];
-            output = cartesian.apply(this,formations);
-            console.log("-------------------------\n J AFFICHE LES ARCOURS : \n",output);
+            // const cartesian = (...a) => a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())));
+            // let output = [];
+            // output = cartesian.apply(this,formations);
+            // console.log("-------------------------\n J AFFICHE LES ARCOURS : \n",output);
 
             // const formationsFull = [];
             // await globalFunc.asyncForEach(formations, (async idFormation => {
@@ -106,6 +111,9 @@ module.exports = class ParcoursFunc {
 
     // Search metier
     static async searchParcours1(metier){
+        /* Cette methode renvois la liste des metiers 
+            pouvant correspondre à la demande de l utilisateur  */
+
         return new Promise(async (resolve, reject) => {
             const metiers = await MetierFormation.find({ nom_recherche: { $regex: metier , $options: 'i'} }).select({nom: 1, id_metier: 1 }).catch(error => {
                 reject(error);
@@ -115,41 +123,118 @@ module.exports = class ParcoursFunc {
         });
     }
 
-    static async searchParcours2(idMetier,niveau,ville=null){
+    static async searchParcours2(idParcours,niveau,userSexe, list_profile=[],type_ecole=null, localisation,limit=100){
+
+        /* Cette methode renvois la liste des formations pour un niveau donne 
+            permettant d acceder au metier recherche 
+            en fonction de notre localisation  */
+
         return new Promise(async (resolve, reject) => {
-            const parcours = await MetierFormation.find({ id_metier: mongoose.Types.ObjectId(idMetier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
+            const parcoursBDD = await Parcours.findById(idParcours).catch(error => {
                 reject(error);
             });
+            if(parcoursBDD) {
+                const parcours = await MetierFormation.findOne({ id_metier: mongoose.Types.ObjectId(parcoursBDD.id_metier), 'formations.niveau_entree': { $gte: niveau}  }).catch(error => {
+                    reject(error);
+                });
+                
+                // On recherche les formations du niveau indique en lien avec le metier
+                let formations = [];
 
-            let formations = [];
-            parcours.forEach(parcours_ => {
-                parcours_.formations.forEach(formation => {
-                    if (formation.niveau_entree === niveau) {
-                        let formationsForVille = formation.codes_formations;
-                        if (ville) {
-                            formations = formationsForVille.filter(f => f.ville === ville);
-                        } else {
-                            formations = formationsForVille;
+                if(parcours){
+                    if( type_ecole === "ingenieur"){
+                        const params = {list_profile: list_profile};
+        
+                        const forma_list = await this.getBestFormation(params).catch(error => {
+                            console.log(params)
+                            reject(error)
+                        });
+
+                        let id_forma = []
+                        if(forma_list != undefined){
+                            id_forma = forma_list.formations.data.map( forma => {
+                                return forma._id ;
+                            })
+                        }else{
+                            reject(new Error(" List_profile est incorrect"))
                         }
-                    }
-                });
-            });
 
-            const formationsFull = [];
-            await globalFunc.asyncForEach(formations, (async idFormation => {
-                const formation = await Formation.findById(idFormation.id).catch(error => {
-                    console.log(error);
-                });
-                if (formation) {
-                    formationsFull.push(formation);
+                        parcours.formations.forEach(formation => {
+                            if (formation.niveau_entree === niveau) {
+                                let formationsForVille = formation.codes_formations;
+        
+                                // Si la formation se trouve à une distance "respectable" elle est ajoutee
+                                const res = formationsForVille.filter(item =>{
+        
+                                    // console.log("test : ",id_forma.includes(item.id))
+                                    return id_forma.includes((item.id).toString());
+                                })
+        
+                                //if (parcours_.helpers.some(helper => (helper.user_id).equals(helperFull.user_id) )) {
+        
+                                formations = res.filter(f => globalFunc.calcCrow(f.location.coordinates[1], f.location.coordinates[0], localisation[1], localisation[0]) <= 50);
+                            }
+                        });
+                    }else{                  
+                        parcours.formations.forEach(formation => {
+                            if (formation.niveau_entree === niveau) {
+                                let formationsForVille = formation.codes_formations;
+                                // Si la formation se trouve à une distance "respectable" elle est ajoutee
+                                formations = formationsForVille.filter(f => globalFunc.calcCrow(f.location.coordinates[1], f.location.coordinates[0], localisation[1], localisation[0]) <= 50);
+                            }
+                        });
+                    };
+                }else{
+                    reject(new Error("metier introuvable"));
                 }
-            }));
 
-            resolve(formationsFull);
+                
+                //On renvoit la liste des formations qui respectent les criteres
+                const formationsFull = [];
+                let formationTotal = 0;
+                await globalFunc.asyncForEach(formations, (async idFormation => {
+                    const formation = await Formation.findById(idFormation.id).catch(error => {
+                        console.log(error);
+                    });
+                    if (formation && formationTotal <= limit) {
+                        formationTotal++;
+                        formationsFull.push(formation);
+                    }
+                }));
+
+                resolve(formationsFull);
+            } else {
+                reject(new Error('Parcours inconnu'));
+            }
+
         });
+     }
+
+    static getBestFormation(params) {
+        const json = JSON.stringify(params);
+        const headers = {"Content-Type":"application/json"}
+        return new Promise((resolve, reject) => {
+          axios.post('http://localhost:9090/find',json,{headers:headers})
+          .then(function (response) {
+            if(response) {
+                //const formations = response.data.results;
+                resolve({formations:response});
+            } else {
+                reject(new Error('Aucune formation trouvée'));
+            }
+          })
+          .catch(function (error) {
+            reject(error);
+          }); 
+        })
     }
 
+
     static async addHelper(id_parcours,userId,helperId){
+
+        /* Cette methode permet à l utilisateur de rajouter un collaborateur 
+            pour l'aider dans la creation du parcours selectionne  */
+
         return new Promise (async (resolve,reject) => {
             const parcours_ = await Parcours.findOne({_id: mongoose.Types.ObjectId(id_parcours),user_id:userId}).catch(error => {
                 reject(error);
@@ -193,7 +278,10 @@ module.exports = class ParcoursFunc {
         })
     }
 
-    static async updateParcours(id_parcours, userId, id_formation=null,index=null,replace=false){
+    static async updateParcours(id_parcours, userId, id_formation=null,index=null,replace=false,isPublic=false){
+
+        /* Cette methode permet de mettre à jour un parcours  */
+
         return new Promise( async (resolve,reject) => {
             const parcours_ = await Parcours.findOne({
                 _id: mongoose.Types.ObjectId(id_parcours),
@@ -267,7 +355,15 @@ module.exports = class ParcoursFunc {
                     }
                 }
     
-                const parcours_res = await Parcours.findByIdAndUpdate(mongoose.Types.ObjectId(id_parcours),{formations:parcours_.formations,updatedAt:new Date()}, {new: true}).catch(error => {
+                const parcours_res = await Parcours.findByIdAndUpdate(
+                    mongoose.Types.ObjectId(id_parcours),
+                    {
+                        formations: parcours_.formations,
+                        public: isPublic,
+                        updatedAt: new Date()
+                    },
+                    {new: true}
+                ).catch(error => {
                     reject (error);
                 })
     
@@ -282,18 +378,20 @@ module.exports = class ParcoursFunc {
     }
 
     static list_Parcours(limit = 100, page = 0, nom = '.*', id_user){
+
+        /* Cette methode permet de lister ses parcours  */
+
         if(limit > 1000) { limit = 1000; }
 
-        console.log("le nom vaut " + nom + " et l'utilisateur est " + id_user);
         nom = globalFunc.replaceSpecialChars(nom);
         return new Promise( async (resolve,reject) => {
             const arrayParcours = await Parcours.find({'user_id' : mongoose.Types.ObjectId(id_user), 'nom': { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
             if(arrayParcours.length > 0) {
-                //const value2 = value;
+
                 const parcoursList = arrayParcours.map((parcours, key) => {
-                    // console.log('value2', value2);
+
                     return {
                         key: key,
                         nom: parcours.nom,
@@ -309,7 +407,9 @@ module.exports = class ParcoursFunc {
     }
 
     static deleteParcours(id_parcours,id_user){
-        console.log(id_user)
+
+        /* Cette methode permet de supprimer l'un de ses parcours  */
+
         return new Promise( async (resolve,reject) => {
             const deleted = await Parcours.deleteOne({_id: mongoose.Types.ObjectId(id_parcours), user_id: id_user}).catch(error => {
                 reject(error);
@@ -321,6 +421,55 @@ module.exports = class ParcoursFunc {
             }
         })
     }
+
+    static list_parcours_formations(id_parcours,id_user=null){
+        console.log(id_user);
+        return new Promise( async (resolve,reject) => {
+            const find = { _id: mongoose.Types.ObjectId(id_parcours) };
+            if(id_user) {
+                find['$or'] = [
+                    {user_id: mongoose.Types.ObjectId(id_user)},
+                    {'helpers.user_id':{$in:[mongoose.Types.ObjectId(id_user)]}}
+                ];
+            } else {
+                find['public'] = true;
+            }
+            console.log(find);
+            
+            const parcours = await Parcours.findOne(find).catch(error => {
+                reject(error);
+            })
+            if(parcours) {
+                resolve({ formations: parcours.formations, parcours_name: parcours.nom })
+            } else {
+                reject(new Error('Parcours inexistant'));
+            }
+        }) 
+
+    }
+
+    // static addParcours(id_user,nom,id_metier){
+
+    //     /* Methode qui permet l'ajout d'un parcours dans la collection */
+
+    //     return new Promise(async (resolve,reject) => {
+    //         const parcours = new Parcours({
+    //             nom: nom,
+    //             user_id: id_user,
+    //             formations: [],
+    //             id_metier: id_metier,
+    //             helpers: []
+    //         })
+
+    //         const parcoursBDD = await parcours.save().catch(error => {
+    //             reject(error);
+    //         })
+
+    //         resolve(parcoursBDD);
+
+    //     })
+
+    // }
 
 
 }

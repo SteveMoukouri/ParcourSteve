@@ -5,6 +5,8 @@ moment.locale('fr');
 const Ecole = require("../mongodb-schemas/ecole");
 const Metier = require("../mongodb-schemas/metier");
 const Formation = require("../mongodb-schemas/formation");
+const Note = require("../mongodb-schemas/child/note");
+
 
 const Global = require("../global");
 const ParcoursFunc = require("../tools/parcours");
@@ -79,7 +81,8 @@ module.exports = (async() =>{
                             date_modif: moment(formation.date_modif, 'DD/MM/YYYY').toDate(),
                             code_uai_ecole: formation.id_formateur,
                             id_ecole:listeEcoles2[formation.id_formateur],
-                            id_metier: nouveauMetierBDD._id
+                            id_metier: nouveauMetierBDD._id,
+                            note:{satisfaction_generale:0}
                         });
             
                         const nouvelleFormationBDD = await nouvelleFormation.save().catch(error => {
@@ -130,7 +133,9 @@ module.exports = (async() =>{
                         modalite_scolarite: elem["AF modalités scolarité"],
                         date_modif: moment(elem["AF date de modification"], 'DD/MM/YYYY').toDate(),
                         code_uai_ecole: elem["ENS code UAI"],
-                        id_ecole:ecoleTrouvee._id
+                        id_ecole:ecoleTrouvee._id,
+                        note:{satisfaction_generale:0}
+
                     });
             
                     const nouvelleFormationBDD = await nouvelleFormation.save().catch(error => {
