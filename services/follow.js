@@ -13,9 +13,18 @@ module.exports = class FollowTools {
         /* Cette methode permet d'ajouter (ou mettre à jour) la liste des utilisateurs que nous suivons  */
         return new Promise(async(resolve,reject) => {
 
+            // On ne se suit pas soi - même
+
+            if(mongoose.Types.ObjectId(id_user).equals(mongoose.Types.ObjectId(id_follow))){
+                reject( new Error( "Vous ne pouvez pas vous suivre vous même" ));
+	
+            }
+            //l'utilisateur qu'on veut suivre
             const userToFollow = await User.findById(id_follow).catch(error => {
                 reject(error);
-            });
+            }); 
+
+            //On doit mettre à jour le nb de follower de l'individu suivi
 
             if(userToFollow){
                 const myFollow = await Follow.findOne({user_id: mongoose.Types.ObjectId(id_user)}).catch(error => {
@@ -34,6 +43,8 @@ module.exports = class FollowTools {
                         const follow_update = await Follow.findOneAndUpdate({user_id: mongoose.Types.ObjectId(id_user)}, {follow:follow_res}, {new:true}).catch(error => {
                             reject (error);
                         });
+                        // On incrémente le nb de follower
+                        await Follow.findOneAndUpdate({user_id: mongoose.Types.ObjectId(id_follow)}, {$inc:{nb_follower: 1 }});
                         resolve(follow_update);
                     }
                     
@@ -66,7 +77,7 @@ module.exports = class FollowTools {
 
         return new Promise( async (resolve,reject) => {
             //On recherche la liste des utilisateurs suivis
-            const arrayFollow = await Follow.findOne({user_id: mongoose.Types.ObjectId(id_user)}).select({"follow": 1}).skip(limit*page).limit(limit).catch(error =>{
+            const arrayFollow = await Follow.findOne({user_id: mongoose.Types.ObjectId(id_user)}).select({"follow": 1,"nb_follower":1}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
 
@@ -83,11 +94,13 @@ module.exports = class FollowTools {
                         grade: user.grade
                     }
                 });
-                console.log("----- followList : \n",followList);
-                resolve (followList);
+                //console.log("----- followList : \n",followList);
+                resolve ({
+                    list_follows: followList,
+                    nb_follower: arrayFollow.nb_follower
+                });
 
             }else{
-                console.log("--- JE RENTRE DANS LE ELSE ---");
                 reject(new Error(" Vous ne suivez personne"));
             }
 
@@ -106,7 +119,7 @@ module.exports = class FollowTools {
                 reject(error);
             });
 
-            userFull = [];
+            let userFull = [];
 
             // A partir de la liste d'id on renvoit les utilisateurs complets
 
@@ -115,19 +128,45 @@ module.exports = class FollowTools {
                     const user = await User.findById(follower_id);
                     userFull.push(user);
                 })
-                const followerList = userFull.map((follower,key) => {
-                    return {
-                        key: key,
-                        nom: follower.name,
-                        address: follower.address,
-                        username:follower.username,
-                        grade: follower.grade
-                    }
-                })
-                resolve(followerList);
+                if(userFull.length > 0){
+
+                    const followerList = userFull.map((follower,key) => {
+                        return {
+                            key: key,
+                            nom: follower.name,
+                            address: follower.address,
+                            username:follower.username,
+                            grade: follower.grade
+                        }
+                    })
+                    resolve(followerList);
+                }else{
+                    reject(new Error("Vous n'avez aucun follower"))
+                }
             }else{
-                reject(new Error("Vous n'avez aucun follower"))
+                reject(new Error("Erreur lors de la recherche de followers"))
             }
+
+        })
+    }
+
+    static isFollower(id_user,id_follower){
+        return new Promise( async (resolve,reject) => {
+           const follower_user = await User.findById(id_follower).catch(error => {
+                reject(error);
+           });
+
+           const follower_element = await Follow.findOne( {user_id:id_user, user: {$in:[follower_user]}}).catch(error =>{
+                reject(error);
+           })
+
+           if(follower_element){
+                resolve(true);
+           } else if( follower_element === null){
+                resolve(false);
+           }else{
+                reject(new Error("Erreur lors de la recherche"));
+           }
 
         })
     }

@@ -296,7 +296,7 @@ module.exports = class ParcoursFunc {
             if(parcours_) {
                 let del_value = replace ? 1:0 ;
                    
-                if(index){
+                if(index != null){
                     if(id_formation){
                         // cas où on ajoute une formation (si replace vaut true on supprime l'ancienne valeur)
                         const formationFull = await Formation.findById(mongoose.Types.ObjectId(id_formation)).catch(error => {
@@ -377,23 +377,35 @@ module.exports = class ParcoursFunc {
 
     }
 
-    static list_Parcours(limit = 100, page = 0, nom = '.*', id_user){
+    static list_Parcours(my_id,idUser = 'me',limit = 100, page = 0, nom = '.*'){
 
         /* Cette methode permet de lister ses parcours  */
 
         if(limit > 1000) { limit = 1000; }
 
+        if(idUser == 'me'){
+            idUser = my_id;
+        }
         nom = globalFunc.replaceSpecialChars(nom);
+
         return new Promise( async (resolve,reject) => {
-            const arrayParcours = await Parcours.find({'user_id' : mongoose.Types.ObjectId(id_user), 'nom': { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
+
+            const arrayParcours = await Parcours.find({'user_id' : mongoose.Types.ObjectId(idUser), 'nom': { $regex: '^(' + nom + ')', $options: 'i'}}).skip(limit*page).limit(limit).catch(error =>{
                 reject(error);
             });
+
+            let parcoursList;
+
             if(arrayParcours.length > 0) {
+                if(!mongoose.Types.ObjectId(my_id).equals(mongoose.Types.ObjectId(idUser))){
+                    parcoursList = arrayParcours.filter( parcours => {
+                        parcours.public === true;
+                    });
+                }
 
-                const parcoursList = arrayParcours.map((parcours, key) => {
-
+                parcoursList = arrayParcours.map((parcours) => {
                     return {
-                        key: key,
+                        id: parcours._id,
                         nom: parcours.nom,
                         formations: parcours.formations,
                         id_metier: parcours.id_metier
@@ -471,5 +483,18 @@ module.exports = class ParcoursFunc {
 
     // }
 
+    static detail_formation(idFormation){
+        return new Promise( async (resolve,reject) => {
+
+            const formation = Formation.findById(idFormation).catch(error => {
+                reject(error);
+            });
+            if (formation){
+                resolve(formation);
+            }else{
+                reject(new Error("formation introuvable"));
+            }
+        })
+    }
 
 }

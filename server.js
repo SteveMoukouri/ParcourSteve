@@ -20,9 +20,9 @@ const write = require('write');
 
 const addEcole = require ("./first-datas-scripts/add_ecole");
 const addFormation = require('./first-datas-scripts/add_metier_formation');
-const parcours = require('./tools/parcours');
+const parcours = require('./services/parcours');
 const addFormationParNiveau = require('./first-datas-scripts/add_formation_niveau');
-const machinelearningTools = require ('./tools/machinelearningTools');
+const machinelearningTools = require ('./services/machinelearningTools');
 
 mongoose.connect(`mongodb+srv://${process.env.USERMONGODB}:${process.env.PASSWORDMONGODB}@${process.env.HOSTMONGODB}/${process.env.MONGODBNAME}?retryWrites=true&w=majority`, {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true });
 
@@ -170,7 +170,6 @@ if (scriptType === undefined) {
         const decoded = jwt.verify(token, process.env.SECRETKEYTOKEN);
         req.headers.userId = decoded.userId;
         req.headers.userSexe = decoded.userSexe;
-
         next();
       } catch(error) {
         res.status(401).send(error.message);
@@ -182,13 +181,15 @@ if (scriptType === undefined) {
 
   // API Routes
   const indexRoute = require('./routes/index');
-  const authRoute = require('./routes/auth');
-  const schoolRoute = require('./routes/school');
-  const userRoute = require('./routes/user');
-  const jobRoute = require ('./routes/job');
-  const parcoursRoute = require ('./routes/parcours');
-  const needHelpRoute = require ('./routes/need_help');
-  const followRoute = require('./routes/follow');
+  const authRoute = require('./routes/auth.route');
+  const schoolRoute = require('./routes/school.route');
+  const userRoute = require('./routes/user.route');
+  const jobRoute = require ('./routes/job.route');
+  const parcoursRoute = require ('./routes/parcours.route');
+  const needHelpRoute = require ('./routes/need_help.route');
+  const followRoute = require('./routes/follow.route');
+  const formationRoute = require('./routes/formation.route');
+  const ratingRoute = require('./routes/note.route')
 
   app.use('/api', indexRoute);
   app.use('/api/auth', authRoute);
@@ -198,6 +199,8 @@ if (scriptType === undefined) {
   app.use('/api/parcours', authUser, parcoursRoute);
   app.use('/api/needHelp',authUser,needHelpRoute);
   app.use('/api/follow',authUser,followRoute);
+  app.use('/api/formation',formationRoute);
+  app.use('/api/ratings',authUser,ratingRoute)
 
   app.get('/', (req, res) => {
     res.status(301).json('API Node Test')

@@ -5,7 +5,7 @@ module.exports = class EcoleTools {
 
     constructor() {}
 
-    static list_Ecole(limit = 100, page = 0, nom = '.*', location, min_dist, max_dist){
+    static list_Ecole(location,limit = 100, page = 0, nom = '.*', min_dist=0, max_dist=5000){
         /* Cette methode renvois la liste des ecoles en fonction de la distance indiquée  */
         if(limit > 1000) { limit = 1000; }
 
@@ -33,6 +33,20 @@ module.exports = class EcoleTools {
 
             resolve (ecoles_proximite);
 
+        })
+    }
+
+    static detail_Ecole(id_ecole){
+        return new Promise (async (resolve,reject) => {
+            const ecole = Ecole.findById(id_ecole).catch(error => {
+                reject(error);
+            }) 
+
+            if(ecole){
+                resolve(ecole);
+            }else{
+                reject (new Error("Ecole introuvable"))
+            }
         })
     }
 

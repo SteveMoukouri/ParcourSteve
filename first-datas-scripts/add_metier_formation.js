@@ -9,7 +9,7 @@ const Note = require("../mongodb-schemas/child/note");
 
 
 const Global = require("../global");
-const ParcoursFunc = require("../tools/parcours");
+const ParcoursFunc = require("../services/parcours");
 
 module.exports = (async() =>{
     const rawdatas = fs.readFileSync('D:/_DOCUMENTS/Mes documents/Cours_Web_M1/parcourSteveIA/New Databases/output3.json');

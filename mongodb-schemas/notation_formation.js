@@ -9,6 +9,6 @@ const notationFormationSchema = new mongoose.Schema({
 
 notationFormationSchema.index({user_id:1, formation_id:1}, { unique: true });
 
-const NotationFormaton = mongoose.model("notation_formaton", notationFormationSchema);
+const NotationFormaton = mongoose.model("notation_formation", notationFormationSchema);
 
 module.exports = NotationFormaton;

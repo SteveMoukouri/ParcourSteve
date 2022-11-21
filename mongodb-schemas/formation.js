@@ -7,7 +7,7 @@ const formationSchema = new mongoose.Schema({
     code_formation:{ type: String, required: true },
     id_onisep:{ type: String },
     code_rncp:{ type: String },
-    domaine: [String],  //{ type: String, required: true },
+    domaine: [String],
     type_formation: {type:String, required:true},
     nature_formation: {type:String, required:true},
     niveau_sortie: {type:Number, required:true},

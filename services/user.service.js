@@ -8,15 +8,12 @@ module.exports = class UserTools {
 
     constructor() {}
 
-    static update(id_user,password,department,city,region,country,
-        public_profile,twitter,instagram,facebook,linkedin,about){
-        password = sha1(password).toString();
+    static update(id_user,profile){
+        //profile.password = sha1(profile.password).toString();
         return new Promise( async (resolve,reject) => {
+            
             const updateUser = await User.findByIdAndUpdate(mongoose.Types.ObjectId(id_user), 
-            {password:password,"adress.department":department,"adress.city":city,
-            "adress.region":region,"adress.country":country,public:public_profile,
-            twitter:twitter,instagram:instagram,facebook:facebook,linkedin:linkedin,
-            about:about},
+            profile,
             {new: true}
             ).catch(error => {
                 reject (error);
@@ -38,6 +35,7 @@ module.exports = class UserTools {
                 const my_profile = await User.findById(my_id).catch(error => {
                     reject(error);
                 })
+                console.log('my_profile', my_profile);
                 if(my_profile){
                     resolve(my_profile);
                 }else{
@@ -81,6 +79,38 @@ module.exports = class UserTools {
                 reject (new Error("Erreur dans le chargement du profile"))
             }
     
+        })
+    }
+
+    static list(limit = 100, page = 0, username = '.*'){
+        if(limit > 1000) { limit = 1000; }
+
+        const nom = globalFunc.replaceSpecialChars(username);
+        return new Promise( async (resolve,reject) => {
+
+            const arrayUser = await User.find({'username' : { $regex: '^(' + nom + ')', $options: 'i'}, 'public':true}).skip(limit*page).limit(limit).catch(error =>{
+                reject(error);
+            });
+
+            if (arrayUser.length > 0){
+                const userList = arrayUser.map((user, key) => {
+                    return {
+                        key: key,
+                        nom: user.name,
+                        username:user.username,
+                        email: user.email,
+                        twitter: user.twitter,
+                        instagram: user.instagram,
+                        facebook: user.facebook,
+                        linkedin: user.linkedin,
+                        about:user.about
+                    }
+                });
+                resolve (userList);
+            }else{
+                reject(new Error( " Profile introuvable "));
+            }
+
         })
     }
 

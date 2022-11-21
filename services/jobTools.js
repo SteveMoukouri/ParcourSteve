@@ -21,18 +21,22 @@ module.exports = class JobTools {
                 reject(error);
             });
 
-            const jobList = arrayJob.map((job, key) => {
-                return {
-                    key: key,
-                    nom: job.nom,
-                    nom_recherche:job.nom_recherche,
-                    code_metier:job.code_metier,
-                    secteur_activite: job.secteur_activite,
-                    niveau_acces_minimum: job.niveau_access_minimum,
-                    id_metier:job._id
-                }
-            });
-            resolve (jobList);
+            if (arrayJob.length > 0){
+                const jobList = arrayJob.map((job, key) => {
+                    return {
+                        key: key,
+                        nom: job.nom,
+                        nom_recherche:job.nom_recherche,
+                        code_metier:job.code_metier,
+                        secteur_activite: job.secteur_activite,
+                        niveau_acces_minimum: job.niveau_access_minimum,
+                        id_metier:job._id
+                    }
+                });
+                resolve (jobList);
+            }else{
+                reject(new Error( " Metier introuvable "));
+            }
 
         })
     }
