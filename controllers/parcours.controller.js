@@ -3,6 +3,7 @@ Joi.objectId = require('joi-objectid')(Joi)
 
 const Parcours = require("../mongodb-schemas/parcours");
 const parcoursTools = require("../services/parcours");
+const NoteTools = require("../services/noteTools");
 
 const Global = require("../global");
 
@@ -93,10 +94,14 @@ module.exports = {
 				id_metier: body.job_id,
 				helpers:[]
 			})
-			nouveauParcours.save((error,nouveauParcoursBDD) => {
+			nouveauParcours.save(async (error,nouveauParcoursBDD) => {
 				if(error){
 					res.status(400).send(error.message)
 				}else{
+					await NoteTools.addNoteParcours(nouveauParcoursBDD._id,req.headers.userId,0,0,0,0).catch(error => {
+							console.log("L'erreur est ici 1 \n");
+							res.status(400).send(error.message)
+					});
 					res.status(200).json({
 						texte: "Ajouté !",
 						parcours: nouveauParcoursBDD

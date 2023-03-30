@@ -113,133 +113,180 @@ module.exports = class NoteTools {
 			})
 		}
 
-		static getFavUserParcours(my_id,id_user){
-			/* Obtenir les parcours favori d'un utilisateur */
+	static getFavUserParcours(my_id,id_user){
+		/* Obtenir les parcours favori d'un utilisateur */
 
-			return new Promise(async (resolve,reject) => {
+		return new Promise(async (resolve,reject) => {
 
-				const user_profile = await User.findById(id_user).catch(error => {
-					reject(error);
-				})
-
-				if(!Global.isValidObjectId(id_user)){
-					reject(new Error ("L'id utilisé est invalide !"))
-				}
-
-				if(mongoose.Types.ObjectId(my_id).equals(mongoose.Types.ObjectId(id_user)) || 
-					followTools.isFollower(my_id,id_user) || user_profile.public){
-						const list_fav_parcours = await Note_parcours.find({user_id:id_user}).sort({'note.satisfaction_generale':1,
-						'note.satisfaction_cout_formations':-1,'note.satisfaction_localisation':-1,
-						'note.satisfaction_domaine_formations':-1}).catch(error => {
-								reject(error);
-							})
-					resolve(list_fav_parcours);
-	
-				}else {
-					reject(new Error("Impossible d'acceder aux favoris"));
-				}
+			const user_profile = await User.findById(id_user).catch(error => {
+				reject(error);
 			})
-		}
 
-		static getRatingsParcours(id_parcours=undefined){
-			/* Obtenir les parcours les mieux notés */
+			if(!Global.isValidObjectId(id_user)){
+				reject(new Error ("L'id utilisé est invalide !"))
+			}
 
-			return new Promise(async (resolve,reject) => {
-				const listNote = await Note_parcours.aggregate([
-					/* On fait l'aggregation des différentes notes par parcours 
-					   pour obtenir la moyenne par critère*/
-
-					{
-						$group: {
-							_id: '$parcours_id',
-							average_satisfaction_generale: { $avg: "$note.satisfaction_generale" },
-							average_satisfaction_cout_formations: { $avg: "$note.satisfaction_cout_formations" },
-							average_satisfaction_localisation: { $avg: "$note.satisfaction_localisation" },
-							average_satisfaction_domaine_formations: { $avg: "$note.satisfaction_domaine_formations" }
-
-
-							//formations: {$push : { id: "$_id", code_formation : "$code_formation", id_ecole : "$id_ecole"}}
-							// forms: {$push : { nom : "$nom" , code_formation : "$code_formation", domaine:"$domaine"}} //noms: { $push : "$nom"  }
-						}
-			
-					},
-					{
-						$sort: {
-							average_satisfaction_generale: -1,
-							average_satisfaction_cout_formations:-1,
-							average_satisfaction_domaine_formations:-1,
-							average_satisfaction_localisation:-1
-						}
-					}
-				]).catch(error => {
-					reject(error)
-				})
-
-				console.log(listNote);
-				if(listNote){
-					/* On modifie l'array de sortie pour avoir la date et 
-					le nom du parcours*/
-
-					let arrayParcours = [];
-					await Global.asyncForEach(listNote,(async note => {
-						const parcoursFull = await Parcours.findById(note._id).select({nom: 1, createdAt:1 }).catch(error => {
+			if(mongoose.Types.ObjectId(my_id).equals(mongoose.Types.ObjectId(id_user)) || 
+				followTools.isFollower(my_id,id_user) || user_profile.public){
+					const list_fav_parcours = await Note_parcours.find({user_id:id_user}).sort({'note.satisfaction_generale':1,
+					'note.satisfaction_cout_formations':-1,'note.satisfaction_localisation':-1,
+					'note.satisfaction_domaine_formations':-1}).catch(error => {
 							reject(error);
 						})
+				resolve(list_fav_parcours);
 
-						arrayParcours.push(parcoursFull);
-					}))
+			}else {
+				reject(new Error("Impossible d'acceder aux favoris"));
+			}
+		})
+	}
 
-					if(arrayParcours.length > 0){
+	static getRatingsParcours(id_parcours=undefined,job_id=undefined,filter=undefined,date=false){
+		/* Obtenir les parcours les mieux notés */
 
-						const listNotewithDate = listNote.map((note, key) => {
-							const item2 = arrayParcours.find(parcours => {
-								parcours._id.equals(mongoose.Types.ObjectId(note._id));
-							});
+		let sort_parameter = {};
 
-							if(item2){
-								return {
-									key: key,
-									id: note._id,
-									nom: item2.nom,
-									createdAt: item2.createdAt,
-									average_satisfaction_generale: note.average_satisfaction_generale,
-									average_satisfaction_cout_formations: note.average_satisfaction_cout_formations,
-									average_satisfaction_domaine_formations: note.average_satisfaction_domaine_formations,
-									average_satisfaction_localisation: note.average_satisfaction_localisation,
+		switch(filter) {
+			case "cost":
+				sort_parameter = {
+					average_satisfaction_cout_formations:-1,
+					average_satisfaction_generale: -1,
+					average_satisfaction_domaine_formations:-1,
+					average_satisfaction_localisation:-1
+				}
+				break;
+			case null:
+				sort_parameter = {
+					average_satisfaction_generale: -1,
+					average_satisfaction_cout_formations:-1,
+					average_satisfaction_domaine_formations:-1,
+					average_satisfaction_localisation:-1
+				}
+			default:
+				sort_parameter = {
+					average_satisfaction_generale: -1,
+					average_satisfaction_cout_formations:-1,
+					average_satisfaction_domaine_formations:-1,
+					average_satisfaction_localisation:-1
+				}
+		}
+
+		return new Promise(async (resolve,reject) => {
+
+			const listNote = await Note_parcours.aggregate([
+				/* On fait l'aggregation des différentes notes par parcours 
+					pour obtenir la moyenne par critère*/
+
+				{
+					$group: {
+						_id: '$parcours_id',
+						average_satisfaction_generale: { $avg: "$note.satisfaction_generale" },
+						average_satisfaction_cout_formations: { $avg: "$note.satisfaction_cout_formations" },
+						average_satisfaction_localisation: { $avg: "$note.satisfaction_localisation" },
+						average_satisfaction_domaine_formations: { $avg: "$note.satisfaction_domaine_formations" }
+
+					}
 		
-								}
-							}else{
-								reject(new Error("Une erreur est survenue dans la liste des parcours"));
-							}
-							console.log("listNote vaut : \n",listNote);
-	
+				},
+				{
+					$sort: sort_parameter
+				}
+			]).catch(error => {
+				reject(error)
+			})
+			
+			if(listNote){
+				/* On modifie l'array de sortie pour avoir la date et 
+				le nom du parcours ainsi que le metier associe*/
+
+				let arrayParcours = [];
+				await Global.asyncForEach(listNote,(async note => {
+					const parcoursFull = await Parcours.findById(note._id).select({nom: 1, createdAt:1,id_metier:1 }).catch(error => {
+						reject(error);
+					})
+
+					arrayParcours.push(parcoursFull);
+				}))
+
+				if(arrayParcours.length > 0){
+
+					let listNotewithDate = listNote.map((note, key) => {
+
+						const item2 = arrayParcours.find(parcours => {
+							if(parcours._id.equals(mongoose.Types.ObjectId(note._id))){
+								arrayParcours = arrayParcours.slice(1); //on retire le parcours deja present pour les iterations suivantes
+								return true;
+							} 
+
 						});
+
+						if(item2){
+							return {
+								key: key,
+								id: note._id,
+								nom: item2.nom,
+								id_metier: item2.id_metier,
+								createdAt: item2.createdAt,
+								average_satisfaction_generale: note.average_satisfaction_generale,
+								average_satisfaction_cout_formations: note.average_satisfaction_cout_formations,
+								average_satisfaction_domaine_formations: note.average_satisfaction_domaine_formations,
+								average_satisfaction_localisation: note.average_satisfaction_localisation,
 	
+							}
+						}else{
+							reject(new Error("Une erreur est survenue dans la liste des parcours"));
+						}
+
+					});
+
+					if(listNotewithDate.length > 0){
 						if(id_parcours){
-							const result = listNote.find(ratings => {
-								return ratings._id.equals(mongoose.Types.ObjectId(id_parcours));
+							// Dans ce cas on veut les notes d'un parcours precis
+							const result = listNotewithDate.find(ratings => {
+								return ratings.id.equals(mongoose.Types.ObjectId(id_parcours));
 							});
 							if(result){
 								resolve(result);
+								return; // si on cherche la note d'un parcours precis on s arrete lorsqu'on le trouve
 							}else{
 								reject(new Error("Aucune note n a ete attribue à ce parcours"));
 							}
-						}else{
-							resolve(listNote)
 						}
+
+						if(date){
+							// Dans ce cas l'utilisateur veut les parcours les plus recents
+							listNotewithDate = listNotewithDate.sort((date1,date2) => date2.createdAt - date1.createdAt)
+						}
+
+						if(job_id){
+							// Dans ce cas l utilisateur veut les parcours correspondant à un metier
+							listNotewithDate = listNotewithDate.filter(parcours => {
+								if(parcours.id_metier.equals(mongoose.Types.ObjectId(job_id))){
+									return true;
+								}
+							});
+							if(listNotewithDate.length > 0){
+								resolve(listNotewithDate);
+								return;
+
+							}else{
+								reject(new Error("Aucun parcours n a ete cree pour ce metier"));
+							}
+						}
+
+						resolve(listNotewithDate);
+
+					}else{
+						reject(new Error("Une erreur est survenue lors de la recherche "));
 					}
 
-				}else{
-					reject(new Error("Aucun parcours noté à ce jour"))
 				}
 
-
-			})
-		}
-
-		static getRatingsParcours2(popular=true, date=false){
-			
-		}
+			}else{
+				reject(new Error("Aucun parcours noté à ce jour"));
+			}
+		})
+	}
 }
 
 				

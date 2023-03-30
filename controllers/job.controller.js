@@ -24,7 +24,7 @@ module.exports = {
 	
 			res.status(200).json({
 				texte: "Liste de " + query.limit + " metiers",
-				ecoles: listMetier
+				metiers: listMetier
 			})
 		} catch(error) {
 			res.status(400).send(error.message);

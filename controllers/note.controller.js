@@ -99,12 +99,15 @@ module.exports = {
 	getRatingsParcours:async (req,res) => {
 
 		const schema = Joi.object({
-			id_parcours: Joi.objectId()
+			id_parcours: Joi.objectId(),
+			job_id: Joi.objectId(),
+			filter: Joi.string(),
+			date: Joi.boolean()
 		})
 
 		try {
 			const query = await schema.validateAsync(req.query);
-			const ratings = await NoteTools.getRatingsParcours(query.id_parcours).catch(error =>{
+			const ratings = await NoteTools.getRatingsParcours(query.id_parcours,query.job_id,query.filter,query.date).catch(error =>{
 				res.status(400).send(error.message);
 			});
 
