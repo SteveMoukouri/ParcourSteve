@@ -6,3 +6,7 @@
 
 # Optional npm cache directory
 .npm
+
+#BDD schemas
+db_schema_mongodb.pdf
+mongoDb_schemaHtml.html
